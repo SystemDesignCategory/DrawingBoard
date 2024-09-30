@@ -1,0 +1,109 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Server Drawing page";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Welcome</h1>
+</div>
+
+<!-- Canvas element -->
+<canvas id="myCanvas" width="1300" height="300" style="border:1px solid #000000;">
+    Your browser does not support the HTML5 canvas tag.
+</canvas>
+
+<br>
+
+<!-- Button -->
+<button id="DrawButton">Share Drawing</button>
+<!-- Button to clear the canvas -->
+<button id="clearButton">Clear Canvas</button>
+
+<script src="~/js/signalR.min.js"></script>
+
+<script>
+    const canvas = document.getElementById('myCanvas');
+    const context = canvas.getContext('2d');
+
+    const DrawButton = document.getElementById('DrawButton');
+    const clearButton = document.getElementById('clearButton');
+
+    let drawing = false;
+    let lastX = 0;
+    let lastY = 0;
+
+    // Connect to the SignalR Hub
+    const connection = new signalR.HubConnectionBuilder()
+                                  .withUrl("/canvasHub")
+                                  .build();
+
+
+    // start share drawing
+    DrawButton.addEventListener('click', () => {
+        // Start the SignalR connection
+        if (connection.state === signalR.HubConnectionState.Disconnected) {
+            connection.start()
+                      .catch(err => console.error(err));
+            DrawButton.innerText = 'Stop Sharing';
+        }
+        if (connection.state === signalR.HubConnectionState.Connected) {
+            connection.stop()
+                .catch(err => console.error(err));
+            DrawButton.innerText = 'Share Drawing';
+        }
+    });
+    
+    // Function to start drawing on the canvas
+    canvas.addEventListener('mousedown', (e) => {
+        drawing = true;
+        lastX = e.offsetX;
+        lastY = e.offsetY;
+
+        //draw(e.offsetX, e.offsetY);
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        if (drawing) {
+            draw(lastX , lastY, e.offsetX, e.offsetY);
+            
+            lastX = e.offsetX;
+            lastY = e.offsetY;
+        }
+    });
+
+    canvas.addEventListener('mouseup', () => {
+        drawing = false;
+    });
+
+    // Function to draw on the canvas and send coordinates to the server
+    function draw(x1, y1, x2, y2) {
+
+        // Draw a line on the canvas
+        context.beginPath();
+        context.moveTo(x1, y1);
+        context.lineTo(x2, y2);
+        context.strokeStyle = 'blue';
+        context.lineWidth = 2;
+        context.stroke();
+
+        // Send the draw coordinates to the server
+        if (connection.state === signalR.HubConnectionState.Connected) {
+            connection.invoke("DrawOnCanvas", x1, y1, x2, y2)
+                .catch(err => console.error(err));
+        }
+
+
+    }
+
+    // Clear canvas button event
+    clearButton.addEventListener('click', () => {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        // Send the clear command to the client
+        if (connection.state === signalR.HubConnectionState.Connected) {
+            connection.invoke("ClearCanvas")
+                      .catch(err => console.error(err));
+        }
+    });
+
+</script>

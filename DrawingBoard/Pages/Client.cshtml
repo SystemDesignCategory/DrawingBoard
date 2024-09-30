@@ -1,0 +1,62 @@
+﻿@page
+@model ClientModel
+@{
+    ViewData["Title"] = "Client drawing board";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Welcome</h1>
+</div>
+
+<!-- Canvas element -->
+<canvas id="myCanvas" width="1300" height="300" style="border:1px solid #000000;">
+    Your browser does not support the HTML5 canvas tag.
+</canvas>
+
+<br>
+
+<script src="~/js/signalR.min.js"></script>
+
+<script>
+    const canvas = document.getElementById('myCanvas');
+    const context = canvas.getContext('2d');
+
+    let drawing = false;
+    let lastX = 0;
+    let lastY = 0;
+
+    // Connect to the SignalR Hub
+    const connection = new signalR.HubConnectionBuilder()
+                                  .withUrl("/canvasHub")
+                                  .build();
+
+    // Start the SignalR connection
+    connection.start()
+              .catch(err => console.error(err));
+
+    // Function to receive and draw coordinates from the server
+    connection.on("ReceiveDraw", (x1, y1, x2, y2) => {
+        draw(x1, y1, x2, y2);
+    });
+
+    // Function to clear board from the server
+    connection.on("ClearCanvas", () => {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+    });
+    
+    function draw(x1, y1, x2, y2) {
+
+        // Draw a line on the canvas
+        context.beginPath();
+        context.moveTo(x1, y1);
+        context.lineTo(x2, y2);
+        context.strokeStyle = 'blue';
+        context.lineWidth = 2;
+        context.stroke();
+
+        // Send the draw coordinates to the server
+        connection.invoke("DrawOnCanvas", x1, y1, x2, y2)
+                  .catch(err => console.error(err));
+    }
+
+</script>
